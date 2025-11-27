@@ -27,7 +27,7 @@ def index():
             flipkart_url = "https://www.flipkart.com/search?q=" + searchString
 
             # ✅ ✅ CHANGED: SAFE REQUEST WITH HEADERS (replaces uReq)
-            flipkart_page = requests.get(flipkart_url, headers=HEADERS, timeout=15).text
+            flipkart_page = requests.get(flipkart_url, headers=HEADERS, timeout=45).text
             flipkart_html = bs(flipkart_page, "html.parser")
 
             bigboxes = flipkart_html.findAll("div", {"class": "cPHDOP col-12-12"})
