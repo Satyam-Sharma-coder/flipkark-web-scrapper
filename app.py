@@ -2,9 +2,16 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS, cross_origin
 import requests
 from bs4 import BeautifulSoup as bs
-from urllib.request import urlopen as uReq
+from urllib.request import urlopen as uReq   # (kept but no longer used)
 
 app = Flask(__name__)
+
+# ✅ ✅ ADDED: Browser headers to bypass Flipkart blocking
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com"
+}
 
 @app.route('/', methods=['GET'])
 @cross_origin()
@@ -16,55 +23,64 @@ def homePage():
 def index():
     if request.method=='POST':
         try:
-            searchString = request.form['content'].replace(" ","");
+            searchString = request.form['content'].replace(" ","")
             flipkart_url = "https://www.flipkart.com/search?q=" + searchString
-            uClient = uReq(flipkart_url)
-            flipkart_page=uClient.read()
-            uClient.close()
+
+            # ✅ ✅ CHANGED: SAFE REQUEST WITH HEADERS (replaces uReq)
+            flipkart_page = requests.get(flipkart_url, headers=HEADERS, timeout=15).text
             flipkart_html = bs(flipkart_page, "html.parser")
-            bigboxes=flipkart_html.findAll("div",{"class":"cPHDOP col-12-12"})
+
+            bigboxes = flipkart_html.findAll("div", {"class": "cPHDOP col-12-12"})
             del bigboxes[0:3]
-            box=bigboxes[0]
+            box = bigboxes[0]
+
             product_link = "https://www.flipkart.com" + box.div.div.div.a['href']
-            prodRes = requests.get(product_link)
+
+            # ✅ ✅ CHANGED: SAFE PRODUCT REQUEST WITH HEADERS
+            prodRes = requests.get(product_link, headers=HEADERS, timeout=15)
             prod_html = bs(prodRes.text, "html.parser")
-            print(prod_html)
+
             commentboxes = prod_html.find_all('div', {'class': "col EPCmJX"})
 
             filename = searchString + ".csv"
-            fw = open(filename, "w")
+            fw = open(filename, "w", encoding="utf-8")
             headers = "Product, Customer Name, Rating, Heading, Comment \n"
             fw.write(headers)
+
             reviews = []
             for commentbox in commentboxes:
                 try:
-                    name=commentbox.find_all('p',{'class':'_2NsDsF AwS1CA'})[0].text
-
+                    name = commentbox.find_all('p', {'class': '_2NsDsF AwS1CA'})[0].text
                 except:
-                    name='No name'
+                    name = 'No name'
 
                 try:
                     rating = commentbox.div.div.text
-
-
                 except:
-                    rating='No rating'
+                    rating = 'No rating'
 
                 try:
                     commenthead = commentbox.div.p.text
                 except:
-                    commenthead='No comment heading'
+                    commenthead = 'No comment heading'
 
                 try:
                     comtag = commentbox.find_all('div', {'class': ''})
                     cus_comment = comtag[0].div.text
-
                 except Exception as e:
-                    print("Exception will create in directory: ",e)
+                    cus_comment = "No comment"
 
-                mydict={"Product": searchString, "Name": name, "Rating":rating,"CommentHead":commenthead,"Comment": cus_comment}
+                mydict = {
+                    "Product": searchString,
+                    "Name": name,
+                    "Rating": rating,
+                    "CommentHead": commenthead,
+                    "Comment": cus_comment
+                }
                 reviews.append(mydict)
-            return render_template('results.html',reviews=reviews[0:len(reviews)-1])
+
+            return render_template('results.html', reviews=reviews[0:len(reviews)-1])
+
         except Exception as e:
             print("The exception message is", e)
             return 'something went wrong'
@@ -73,8 +89,5 @@ def index():
         return render_template('index.html')
 
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     app.run(debug=True)
-
-
