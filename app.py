@@ -60,7 +60,9 @@ def index():
                     cus_comment = comtag[0].div.text
 
                 except Exception as e:
-                    print("Exception will create in directory: ",e)
+                    print("Exception will create in directory: ", e)
+                    cus_comment = "No comment"
+
 
                 mydict={"Product": searchString, "Name": name, "Rating":rating,"CommentHead":commenthead,"Comment": cus_comment}
                 reviews.append(mydict)
