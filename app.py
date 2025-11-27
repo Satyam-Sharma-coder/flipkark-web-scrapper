@@ -2,10 +2,12 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS, cross_origin
 import requests
 from bs4 import BeautifulSoup as bs
-from urllib.request import urlopen as uReq   # (kept but no longer used)
+from urllib.request import urlopen as uReq
+from urllib.request import Request   # ✅ needed to pass headers in uReq
 
 app = Flask(__name__)
 
+# ✅ ONLY THIS VARIABLE ADDED (as you asked)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -25,24 +27,28 @@ def index():
             searchString = request.form['content'].replace(" ","")
             flipkart_url = "https://www.flipkart.com/search?q=" + searchString
 
-            # ✅ ✅ CHANGED: SAFE REQUEST WITH HEADERS (replaces uReq)
-            flipkart_page = requests.get(flipkart_url, headers=HEADERS, timeout=45).text
-            flipkart_html = bs(flipkart_page, "html.parser")
+            # ✅ ONLY CHANGE: uReq now uses HEADERS
+            req = Request(flipkart_url, headers=HEADERS)
+            uClient = uReq(req)
+            flipkart_page = uClient.read()
+            uClient.close()
 
+            flipkart_html = bs(flipkart_page, "html.parser")
             bigboxes = flipkart_html.findAll("div", {"class": "cPHDOP col-12-12"})
             del bigboxes[0:3]
             box = bigboxes[0]
 
             product_link = "https://www.flipkart.com" + box.div.div.div.a['href']
 
-            # ✅ ✅ CHANGED: SAFE PRODUCT REQUEST WITH HEADERS
-            prodRes = requests.get(product_link, headers=HEADERS, timeout=15)
+            # ✅ ONLY CHANGE: requests.get now uses HEADERS
+            prodRes = requests.get(product_link, headers=HEADERS)
             prod_html = bs(prodRes.text, "html.parser")
+            print(prod_html)
 
             commentboxes = prod_html.find_all('div', {'class': "col EPCmJX"})
 
             filename = searchString + ".csv"
-            fw = open(filename, "w", encoding="utf-8")
+            fw = open(filename, "w")
             headers = "Product, Customer Name, Rating, Heading, Comment \n"
             fw.write(headers)
 
@@ -67,7 +73,7 @@ def index():
                     comtag = commentbox.find_all('div', {'class': ''})
                     cus_comment = comtag[0].div.text
                 except Exception as e:
-                    cus_comment = "No comment"
+                    print("Exception will create in directory: ", e)
 
                 mydict = {
                     "Product": searchString,
@@ -88,5 +94,5 @@ def index():
         return render_template('index.html')
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
     app.run(debug=True)
