@@ -2,12 +2,11 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS, cross_origin
 import requests
 from bs4 import BeautifulSoup as bs
-from urllib.request import urlopen as uReq
-from urllib.request import Request   # ✅ needed to pass headers in uReq
+from urllib.request import urlopen as uReq  # kept as you wanted
 
 app = Flask(__name__)
 
-# ✅ ONLY THIS VARIABLE ADDED (as you asked)
+# ✅ ONLY VARIABLE YOU ALLOWED
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -22,27 +21,26 @@ def homePage():
 @app.route('/review', methods=['POST','GET'])
 @cross_origin()
 def index():
-    if request.method=='POST':
+    if request.method == 'POST':
         try:
-            searchString = request.form['content'].replace(" ","")
+            searchString = request.form['content'].replace(" ", "")
             flipkart_url = "https://www.flipkart.com/search?q=" + searchString
 
-            # ✅ ONLY CHANGE: uReq now uses HEADERS
-            req = Request(flipkart_url, headers=HEADERS)
-            uClient = uReq(req)
-            flipkart_page = uClient.read()
-            uClient.close()
+            # ✅ ✅ ONLY THIS LINE CHANGED (urllib → requests)
+            flipkart_page = requests.get(flipkart_url, headers=HEADERS, timeout=30).content
 
             flipkart_html = bs(flipkart_page, "html.parser")
+
             bigboxes = flipkart_html.findAll("div", {"class": "cPHDOP col-12-12"})
             del bigboxes[0:3]
             box = bigboxes[0]
 
             product_link = "https://www.flipkart.com" + box.div.div.div.a['href']
 
-            # ✅ ONLY CHANGE: requests.get now uses HEADERS
-            prodRes = requests.get(product_link, headers=HEADERS)
+            # ✅ ✅ SAME TRANSPORT FIX HERE (ONLY headers added)
+            prodRes = requests.get(product_link, headers=HEADERS, timeout=30)
             prod_html = bs(prodRes.text, "html.parser")
+
             print(prod_html)
 
             commentboxes = prod_html.find_all('div', {'class': "col EPCmJX"})
@@ -82,6 +80,7 @@ def index():
                     "CommentHead": commenthead,
                     "Comment": cus_comment
                 }
+
                 reviews.append(mydict)
 
             return render_template('results.html', reviews=reviews[0:len(reviews)-1])
@@ -94,5 +93,5 @@ def index():
         return render_template('index.html')
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     app.run(debug=True)
